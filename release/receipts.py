@@ -40,3 +40,8 @@ def match_release_request(
 
 def store_release_receipt(conn: sqlite3.Connection, day: str, number: str) -> None:
     conn.execute('INSERT INTO release_receipts(day, number) VALUES (?, ?)', (day, number))
+
+
+def store_handoff_receipt(conn: sqlite3.Connection, day: str, number: str) -> None:
+    store_release_receipt(conn, day, number)
+    conn.execute('INSERT INTO handoff_publications(day, number) VALUES (?, ?)', (day, number))

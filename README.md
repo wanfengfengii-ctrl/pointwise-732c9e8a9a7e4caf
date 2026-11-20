@@ -48,4 +48,13 @@ with open_store('water.sqlite3') as store:
 - `publish` 使用显式版次，返回 `(ReleaseSnapshot, ReleaseReceipt)`。新号在同一写事务内重新试算并固定两版号、所有明细、双侧出处、汇总及首执。重复原参数返回原成果，异参报 `PublishNumberConflict`，提交错误以 SQLite 异常返回且完整回滚。`read_release` 同样返回成果和首执，按日域及发布号查找，缺少该号时抛出 `ReleaseNotFound`。
 - `list_editions` 按版号列出 `EditionAvailability`，含可用及已退役条目。`retire(store, day, kind, version)` 撤下指定旧版原件，返回 `RetirementRecord`，重投返回原记录。目录和退役入口对未知日域及非法源类分别报 `UnknownDay`、`InvalidSourceKind`。退役入口对未知版及本侧最新版分别报 `UnknownEdition`、`LatestEdition`。已发布明细、汇总、首执及源请求证据跨退役和重开保留。
 
+## 夜班交班
+
+- `register_handoff(store, day) -> None` 在一个已知日域登记交班流，首次把两侧下界设为 `(0, 0)`，重复登记保留现有进度。未知日域报 `UnknownDay`。
+- `publish_handoff(store, day, number)` 在同一写事务内按当前可用整版自动选版、固定日账并推进下界。成功返回与人工定稿同形的 `(ReleaseSnapshot, ReleaseReceipt)`；待交班返回 `None`，不占号、不改下界，可用同号重试。未登记日域报 `HandoffNotRegistered`。
+- 选版规则：候选两侧版号均不低于当前下界、至少一侧严格大于，且观测版的每个原行（含缺测行）都能在清册版找到测点。若另一候选双侧都不低于某候选且至少一侧严格大于，则该候选不发布；在剩余未被超越的候选中取版号最大的一对（先观测后清册，供示例说明取舍）。候选资格、固定账、首执与下界在同一事务内裁定。
+- 人工与交班共用日域内发布号空间。已发交班号经人工入口重投、或人工号经交班入口提交，均报 `HandoffNumberConflict`（即使两侧版号相同）。已发交班按原号重投直接返回固定日账与首执。
+- 登记后的日域，`retire` 只允许撤下严格低于本侧已发下界的非最新版；最新版仍报 `LatestEdition`，下界及以上（含当前不相容的中间版）报 `HandoffEditionProtected`。未登记日域沿用 V1。
+
+
 `open_store` 幂等初始化库结构，保留已登记业务数据。读操作使用一次 SQLite 事务视图，写操作使用 `BEGIN IMMEDIATE` 把核对和变更串行化。接纳、定稿与退役都通过公开入口完整提交。提交失败场景使用同一连接上的延迟约束，在发布回执写入后由 SQLite 的 COMMIT 触发。

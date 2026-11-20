@@ -105,6 +105,17 @@ _SCHEMA = (
         PRIMARY KEY(day, number),
         FOREIGN KEY(day, number) REFERENCES release_snapshots(day, number)
     )''',
+    '''CREATE TABLE IF NOT EXISTS handoff_streams (
+        day TEXT PRIMARY KEY NOT NULL REFERENCES days(day),
+        fact_floor INTEGER NOT NULL CHECK (fact_floor >= 0),
+        registry_floor INTEGER NOT NULL CHECK (registry_floor >= 0)
+    )''',
+    '''CREATE TABLE IF NOT EXISTS handoff_publications (
+        day TEXT NOT NULL,
+        number TEXT NOT NULL,
+        PRIMARY KEY(day, number),
+        FOREIGN KEY(day, number) REFERENCES release_receipts(day, number)
+    )''',
 )
 
 
